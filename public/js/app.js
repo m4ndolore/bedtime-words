@@ -1,14 +1,19 @@
 /* Bedtime words: a grown-up reads the top half, the kids answer with the bottom half.
  * One tap shows the kids' half, the next tap moves on. + adds an affirmation (a suggestion, a
  * category, or one the family writes), − takes the current one out of the rotation.
- * "simpler words" swaps one affirmation to its simpler wording until the family switches back.
+ * The ABC block swaps one affirmation to its simpler wording until the family switches back.
+ * Families can share what they write; a maintainer approves each one before other families see
+ * it under "From other families" in the + sheet.
  */
 (() => {
   'use strict';
 
   const OWN = 'Our Own';
+  const COMMUNITY = 'From other families';
+  const TURNSTILE = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
   const sound = window.BedtimeSound;
   const store = window.BedtimeStore;
+  const validate = window.BedtimeValidate;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   const $ = (id) => document.getElementById(id);
 
@@ -23,6 +28,8 @@
     screen: 'start',
     swiped: false,
     adder: { category: null, skip: 0, editing: null },
+    community: { enabled: false, siteKey: null, items: [] },
+    share: { item: null, token: null, widget: null },
     undo: null,
   };
   let prefs = store.prefs();
@@ -99,6 +106,24 @@
   function putRotation(rotation) {
     accept(store.setRotation(rotation));
     renderStart();
+  }
+
+  /* Affirmations other families shared. Offline or switched off, the chip and Share stay hidden. */
+  async function loadCommunity() {
+    try {
+      const response = await fetch('/api/community');
+      if (!response.ok) throw new Error(String(response.status));
+      const payload = await response.json();
+      state.community = { enabled: true, siteKey: payload.siteKey, items: payload.affirmations };
+    } catch (_) {
+      return;
+    }
+    if ($('adder').open) renderAdder();
+    if ($('editor').open) renderEditor();
+  }
+
+  function canShare(item) {
+    return Boolean(state.community.enabled && item && item.custom && !item.community && !item.shared);
   }
 
   function byId(id) { return state.pool.find((item) => item.id === id); }
@@ -361,6 +386,12 @@
   /* Relevant first: the current card's category, then the categories with fewest in the
      rotation, then pool order. A chosen category narrows the list to that category. */
   function suggestions() {
+    if (state.adder.category === COMMUNITY) {
+      const added = new Set(state.pool.filter((item) => item.community).map((item) => item.community));
+      return state.community.items
+        .filter((item) => !added.has(item.id))
+        .map((item) => ({ ...item, id: `c-${item.id}`, communityId: item.id }));
+    }
     const inRotation = new Set(state.rotation);
     const current = state.screen === 'card' ? byId(state.order[state.index]) : null;
     const counts = categoryCounts();
@@ -385,7 +416,11 @@
   function renderChips() {
     const chips = $('adder-chips');
     chips.replaceChildren();
-    const options = [{ name: null, label: 'Any' }, ...state.categories.map((c) => ({ name: c.name, label: c.name }))];
+    const options = [
+      { name: null, label: 'Any' },
+      ...(state.community.enabled && state.community.items.length ? [{ name: COMMUNITY, label: COMMUNITY }] : []),
+      ...state.categories.map((c) => ({ name: c.name, label: c.name })),
+    ];
     for (const option of options) {
       const chip = el('button', {
         type: 'button',
@@ -396,7 +431,7 @@
       chip.addEventListener('click', () => {
         state.adder.category = option.name;
         state.adder.skip = 0;
-        if (option.name) $('writer-category').value = option.name;
+        if (option.name && option.name !== COMMUNITY) $('writer-category').value = option.name;
         renderAdder();
       });
       chips.append(chip);
@@ -408,15 +443,29 @@
     const empty = !list.length;
     $('suggestion').hidden = empty;
     $('suggestion-empty').hidden = !empty;
+    $('suggestion-empty').textContent = state.adder.category === COMMUNITY
+      ? 'You have added every one other families shared so far.'
+      : 'Every affirmation here is already in the rotation. Write your own below.';
     if (empty) return;
     const item = list[state.adder.skip % list.length];
     $('suggestion').dataset.id = String(item.id);
     $('suggestion-challenge').textContent = item.challenge;
     $('suggestion-response').textContent = item.response;
+    const label = item.communityId ? `${item.category} · from another family` : item.category;
     $('suggestion-meta').textContent = list.length > 1
-      ? `${item.category} · ${(state.adder.skip % list.length) + 1} of ${list.length}`
-      : item.category;
+      ? `${label} · ${(state.adder.skip % list.length) + 1} of ${list.length}`
+      : label;
     $('suggestion-skip').hidden = list.length < 2;
+    const heart = $('suggestion-heart');
+    heart.hidden = !item.communityId;
+    if (item.communityId) {
+      const hearted = store.hearted().includes(item.communityId);
+      const count = `${item.hearts} ${item.hearts === 1 ? 'heart' : 'hearts'}`;
+      heart.dataset.community = item.communityId;
+      heart.setAttribute('aria-pressed', String(hearted));
+      heart.setAttribute('aria-label', hearted ? `You hearted this one, ${count}` : `Heart this one, ${count}`);
+      $('suggestion-hearts').textContent = String(item.hearts);
+    }
   }
 
   function renderWriterCategories() {
@@ -437,11 +486,13 @@
     if ($('editor').open) $('editor').close();
     state.adder.skip = 0;
     adderStatus('');
+    $('adder-share').hidden = true;
     resetWriter();
     renderAdder();
     $('adder').showModal();
     if (write) $('writer-challenge').focus();
     load();
+    loadCommunity();
   }
 
   /* Something added mid-session comes up next, so it is practiced tonight. */
@@ -452,10 +503,21 @@
   }
 
   function addSuggestion() {
-    const item = state.pool.find((other) => String(other.id) === $('suggestion').dataset.id);
+    const key = $('suggestion').dataset.id;
+    const shared = state.community.items.find((other) => `c-${other.id}` === key);
+    const item = shared || state.pool.find((other) => String(other.id) === key);
     if (!item) return;
-    const { id } = item;
-    const ok = change(() => putRotation([...state.rotation, id]), adderStatus);
+    let id = item.id;
+    const ok = change(() => {
+      if (!shared) {
+        putRotation([...state.rotation, id]);
+        return;
+      }
+      const payload = store.addOwn({ challenge: shared.challenge, response: shared.response, category: shared.category, community: shared.id });
+      accept(payload);
+      id = payload.added.id;
+      renderStart();
+    }, adderStatus);
     if (!ok) return;
     practiceNext(id);
     sound.bell(4, 0, 0.12);
@@ -463,6 +525,126 @@
       ? `Added, and it's next: "${saying(item)}"`
       : `Added: "${saying(item)}" (${state.rotation.length} in the rotation)`);
     renderAdder();
+  }
+
+  async function heartSuggestion() {
+    const id = $('suggestion-heart').dataset.community;
+    if (!id || store.hearted().includes(id)) return;
+    const item = state.community.items.find((other) => other.id === id);
+    store.markHearted(id);
+    if (item) item.hearts += 1;
+    sound.bell(2, 0, 0.1);
+    renderSuggestion();
+    try {
+      const response = await fetch('/api/hearts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, device: store.device }),
+      });
+      if (response.ok && item) {
+        item.hearts = (await response.json()).hearts;
+        renderSuggestion();
+      }
+    } catch (_) {
+      // The heart is remembered on this device; the count catches up on the next load.
+    }
+  }
+
+  /* ---------- Sharing with other families ---------- */
+
+  function shareStatus(text, error = false) {
+    const node = $('share-status');
+    node.textContent = text;
+    node.classList.toggle('error', error);
+  }
+
+  function showTurnstile() {
+    const failed = () => shareStatus('The robot check could not load. Check the connection and try again.', true);
+    const render = () => {
+      state.share.token = null;
+      if (state.share.widget !== null) {
+        window.turnstile.reset(state.share.widget);
+        return;
+      }
+      state.share.widget = window.turnstile.render($('share-check'), {
+        sitekey: state.community.siteKey,
+        theme: nightPaper() ? 'dark' : 'light',
+        callback: (token) => { state.share.token = token; },
+        'expired-callback': () => { state.share.token = null; },
+        'error-callback': failed,
+      });
+    };
+    if (window.turnstile) {
+      render();
+      return;
+    }
+    if ($('turnstile-script')) return;
+    const script = el('script', { id: 'turnstile-script', src: TURNSTILE, async: true });
+    script.addEventListener('load', render);
+    script.addEventListener('error', failed);
+    document.head.append(script);
+  }
+
+  function openShare(item) {
+    if (!canShare(item)) return;
+    state.share.item = item;
+    $('share-challenge').textContent = item.challenge;
+    $('share-response').textContent = item.response;
+    $('share-contact').value = '';
+    $('share-submit').disabled = false;
+    $('share-submit').textContent = 'Send for review';
+    const checked = validate.checkSubmission(item, state.categories.map((c) => c.name));
+    shareStatus(checked.ok ? '' : `${checked.reason} Edit it first.`, !checked.ok);
+    $('share-submit').disabled = !checked.ok;
+    $('share').showModal();
+    if (checked.ok) showTurnstile();
+  }
+
+  function afterShared(item) {
+    change(() => accept(store.markShared(item.id)), shareStatus);
+    $('adder-share').hidden = true;
+    $('writer-share').hidden = true;
+    if ($('editor').open) renderEditor();
+  }
+
+  async function submitShare(event) {
+    event.preventDefault();
+    const item = state.share.item;
+    if (!item) return;
+    if (!state.share.token) {
+      shareStatus('Finish the robot check above first.', true);
+      return;
+    }
+    const body = {
+      challenge: item.challenge,
+      response: item.response,
+      category: item.category,
+      contact: $('share-contact').value,
+      turnstileToken: state.share.token,
+    };
+    $('share-submit').disabled = true;
+    shareStatus('Sending…');
+    try {
+      const response = await fetch('/api/submissions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (response.status === 201) {
+        afterShared(item);
+        sound.bell(6, 0, 0.12);
+        shareStatus('Sent. A grown-up reads every one before other families see it.');
+        $('share-submit').textContent = 'Sent';
+        return;
+      }
+      const payload = await response.json().catch(() => ({}));
+      shareStatus(payload.error || `Could not send it (${response.status}). Try again.`, true);
+    } catch (_) {
+      shareStatus('No connection. Try again when you are online.', true);
+    }
+    if (window.turnstile && state.share.widget !== null) window.turnstile.reset(state.share.widget);
+    state.share.token = null;
+    $('share-submit').disabled = false;
   }
 
   /* ---------- Writing our own ---------- */
@@ -474,6 +656,7 @@
     $('writer-submit').textContent = 'Add to the rotation';
     $('writer-delete').hidden = true;
     $('writer-cancel').hidden = true;
+    $('writer-share').hidden = true;
     renderWriterCategories();
     $('writer-category').value = state.adder.category || OWN;
   }
@@ -488,6 +671,7 @@
     $('writer-submit').textContent = 'Save changes';
     $('writer-delete').hidden = false;
     $('writer-cancel').hidden = false;
+    $('writer-share').hidden = !canShare(item);
     $('writer').scrollIntoView({ block: 'start' });
   }
 
@@ -500,12 +684,14 @@
     };
     if (!body.challenge || !body.response) return;
     const editing = state.adder.editing;
+    let added = null;
     const ok = change(() => {
       if (editing) {
         accept(store.updateOwn(editing, body));
       } else {
         const payload = store.addOwn(body);
         accept(payload);
+        added = byId(payload.added.id);
         practiceNext(payload.added.id);
       }
       renderStart();
@@ -515,6 +701,8 @@
     adderStatus(editing ? 'Saved.' : `Added to the rotation: "${body.challenge} ${body.response}"`);
     resetWriter();
     renderAdder();
+    $('adder-share').hidden = !canShare(added);
+    if (added) $('adder-share').dataset.id = added.id;
   }
 
   function deleteOwn() {
@@ -557,8 +745,21 @@
       number ? el('span', { class: 'pick-number', text: `${number}.` }) : null,
       el('span', { class: 'c', text: words.challenge }), ' ',
       el('span', { class: 'r', text: words.response }),
-      el('span', { class: 'pick-meta', text: item.custom ? `${item.category} · written by us` : item.category }));
+      el('span', { class: 'pick-meta', text: pickMeta(item) }));
     return el('li', { class: 'pick' }, text, el('div', { class: 'pick-buttons' }, ...buttons));
+  }
+
+  function pickMeta(item) {
+    if (item.community) return `${item.category} · from another family`;
+    if (item.custom) return `${item.category} · written by us${item.shared ? ' · shared' : ''}`;
+    return item.category;
+  }
+
+  function shareButton(item) {
+    if (!canShare(item)) return null;
+    const button = el('button', { type: 'button', class: 'pick-button', text: 'Share', 'aria-label': `Share "${saying(item)}" with other families` });
+    button.addEventListener('click', () => openShare(item));
+    return button;
   }
 
   function editButton(item) {
@@ -587,7 +788,7 @@
       if (!item) return;
       const remove = el('button', { type: 'button', class: 'pick-button', text: 'Remove', 'aria-label': `Remove "${saying(item)}"` });
       remove.addEventListener('click', () => saveRotation(state.rotation.filter((other) => other !== id), 'Removed.'));
-      rotationList.append(pickRow(item, [editButton(item), remove], index + 1));
+      rotationList.append(pickRow(item, [shareButton(item), editButton(item), remove], index + 1));
     });
 
     const pool = $('pool-list');
@@ -601,7 +802,7 @@
       for (const item of waiting) {
         const add = el('button', { type: 'button', class: 'pick-button pick-button--add', text: 'Add', 'aria-label': `Add "${saying(item)}"` });
         add.addEventListener('click', () => saveRotation([...state.rotation, item.id], 'Added to the rotation.'));
-        list.append(pickRow(item, [editButton(item), add]));
+        list.append(pickRow(item, [shareButton(item), editButton(item), add]));
       }
       if (!items.length) list.append(el('li', { class: 'pool-empty', text: 'None yet. Tap "Write our own" above.' }));
       else if (!waiting.length) list.append(el('li', { class: 'pool-empty', text: 'All of these are in the rotation.' }));
@@ -629,6 +830,7 @@
     renderEditor();
     $('editor').showModal();
     load();
+    loadCommunity();
   }
 
   /* ---------- Hand-drawn boil ---------- */
@@ -720,6 +922,11 @@
       renderSuggestion();
     });
     $('suggestion-add').addEventListener('click', addSuggestion);
+    $('suggestion-heart').addEventListener('click', heartSuggestion);
+    $('adder-share').addEventListener('click', () => openShare(byId($('adder-share').dataset.id)));
+    $('writer-share').addEventListener('click', () => openShare(byId(state.adder.editing)));
+    $('share-form').addEventListener('submit', submitShare);
+    $('close-share').addEventListener('click', () => $('share').close());
     $('close-adder').addEventListener('click', () => $('adder').close());
     $('writer').addEventListener('submit', submitWriter);
     $('writer-cancel').addEventListener('click', resetWriter);
@@ -759,6 +966,7 @@
       if (document.visibilityState === 'visible' && state.screen === 'start') load();
     });
     load();
+    loadCommunity();
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
 

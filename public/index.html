@@ -212,12 +212,17 @@
         <p id="suggestion-meta" class="suggestion-meta"></p>
         <p class="suggestion-words"><span id="suggestion-challenge" class="c"></span> <span id="suggestion-response" class="r"></span></p>
         <div class="suggestion-actions">
+          <button type="button" id="suggestion-heart" class="heart-button" aria-pressed="false" hidden>
+            <svg class="doodle" viewBox="0 0 32 32" aria-hidden="true"><path class="ink heart-shape" d="M16 27.2C9.2 21.8 4.4 17.6 4.6 12c.1-3.6 2.8-6.2 6-6.1 2.5.1 4.3 1.7 5.4 3.7 1.1-2 2.9-3.6 5.4-3.7 3.2-.1 5.9 2.5 6 6.1.2 5.6-4.6 9.8-11.4 15.2Z"/></svg>
+            <span id="suggestion-hearts">0</span>
+          </button>
           <button type="button" id="suggestion-skip" class="text-button">Show me another</button>
           <button type="button" id="suggestion-add" class="wide-button">Add this one</button>
         </div>
       </article>
       <p id="suggestion-empty" class="pool-empty" hidden>Every affirmation here is already in the rotation. Write your own below.</p>
       <p id="adder-status" class="editor-status" role="status"></p>
+      <button type="button" id="adder-share" class="text-button share-link" hidden>Share it with other families</button>
 
       <form id="writer" class="writer" autocomplete="off">
         <h3 id="writer-title" class="pool-title">write our own</h3>
@@ -229,10 +234,29 @@
         <div class="writer-actions">
           <button type="button" id="writer-delete" class="text-button text-button--danger" hidden>Delete</button>
           <button type="button" id="writer-cancel" class="text-button" hidden>Cancel</button>
+          <button type="button" id="writer-share" class="text-button" hidden>Share with other families</button>
           <button type="submit" id="writer-submit" class="wide-button">Add to the rotation</button>
         </div>
       </form>
     </div>
+  </dialog>
+
+  <dialog id="share" class="sheet" aria-labelledby="share-title">
+    <form id="share-form" class="sheet-body" autocomplete="off">
+      <div class="sheet-head">
+        <h2 id="share-title">share with other families</h2>
+        <button type="button" id="close-share" class="text-button">Close</button>
+      </div>
+      <p class="suggestion-words"><span id="share-challenge" class="c"></span> <span id="share-response" class="r"></span></p>
+      <p class="sheet-note">A grown-up who runs this site reads every shared affirmation before other families see it. Families see the words only, never who sent them.</p>
+      <label class="field"><span>Your name or email (optional, only the moderator sees this)</span>
+        <input id="share-contact" maxlength="120" enterkeyhint="done"></label>
+      <div id="share-check" class="turnstile"></div>
+      <p id="share-status" class="editor-status" role="status"></p>
+      <div class="writer-actions">
+        <button type="submit" id="share-submit" class="wide-button">Send for review</button>
+      </div>
+    </form>
   </dialog>
 
   <dialog id="settings" class="sheet" aria-labelledby="settings-title">
@@ -278,6 +302,7 @@
 
   <script src="/js/sound.js" defer></script>
   <script src="/js/store.js" defer></script>
+  <script src="/js/validate.js" defer></script>
   <script src="/js/app.js" defer></script>
 </body>
 </html>

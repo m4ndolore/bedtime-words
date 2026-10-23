@@ -33,6 +33,8 @@ test('offline after the first visit: run a session, add, write, remove, undo, re
   await page.locator('#writer-response').fill('I know my family loves me.');
   await page.locator('#writer-submit').click();
   await expect(page.locator('#adder-status')).toContainText('Added to the rotation');
+  await expect(page.locator('#adder-share')).toBeHidden();
+  await expect(page.locator('#adder-chips')).not.toContainText('From other families');
   await page.locator('#close-adder').click();
 
   await page.locator('#remove-current').click();
@@ -88,4 +90,56 @@ test('simpler words: one tap switches that affirmation only, and it stays switch
   await expect(page.locator('#wording')).toHaveAttribute('aria-pressed', 'false');
   await expect(page.locator('#challenge')).toHaveText('I am capable of anything');
   await expect(page.locator('#response')).toHaveText('I put my mind to.');
+});
+
+test('from other families: heart and add a shared one, then share our own through the robot check', async ({ page }) => {
+  // protects=the community loop in the app (browse, heart once, add offline-safe copy, share with contact and Turnstile token); fails_when=the chip is missing, a second heart counts, the added copy is lost on reload, or the share request lacks the token or text; no_claim=the real Worker and Turnstile (both mocked here; the Worker is covered by tests/worker.test.mjs)
+  const sent = { hearts: 0, submissions: [] };
+  await page.route('**/api/community', (route) => route.fulfill({ json: {
+    siteKey: 'test-key',
+    affirmations: [{ id: 'sub-1', category: 'Kindness', challenge: 'I share', response: 'what I have.', hearts: 4 }],
+  } }));
+  await page.route('**/api/hearts', (route) => { sent.hearts += 1; return route.fulfill({ json: { hearts: 5 } }); });
+  await page.route('**/api/submissions', (route) => {
+    sent.submissions.push(route.request().postDataJSON());
+    return route.fulfill({ status: 201, json: { id: 'new-1' } });
+  });
+  await page.route('https://challenges.cloudflare.com/**', (route) => route.fulfill({
+    contentType: 'text/javascript',
+    body: 'window.turnstile = { render(el, o) { el.textContent = "robot check ok"; setTimeout(() => o.callback("pass"), 50); return 1; }, reset() {} };',
+  }));
+
+  await page.goto('/');
+  await page.locator('#begin').click();
+  await page.locator('#add-more').click();
+  await page.getByRole('button', { name: 'From other families' }).click();
+  await expect(page.locator('#suggestion-challenge')).toHaveText('I share');
+  await expect(page.locator('#suggestion-meta')).toHaveText('Kindness · from another family');
+  await page.locator('#suggestion-heart').click();
+  await expect(page.locator('#suggestion-hearts')).toHaveText('5');
+  await expect(page.locator('#suggestion-heart')).toHaveAttribute('aria-pressed', 'true');
+  await page.locator('#suggestion-heart').click();
+  expect(sent.hearts).toBe(1);
+  await page.locator('#suggestion-add').click();
+  await expect(page.locator('#adder-status')).toContainText("Added, and it's next");
+
+  await page.locator('#writer-challenge').fill('When I feel left out,');
+  await page.locator('#writer-response').fill('I know my family loves me.');
+  await page.locator('#writer-submit').click();
+  await page.locator('#adder-share').click();
+  await expect(page.locator('#share-challenge')).toHaveText('When I feel left out,');
+  await page.locator('#share-contact').fill('Pat');
+  await expect(page.locator('#share-check')).toHaveText('robot check ok');
+  await page.locator('#share-submit').click();
+  await expect(page.locator('#share-status')).toHaveText('Sent. A grown-up reads every one before other families see it.');
+  expect(sent.submissions).toEqual([{
+    challenge: 'When I feel left out,', response: 'I know my family loves me.', category: 'Our Own', contact: 'Pat', turnstileToken: 'pass',
+  }]);
+
+  await page.reload();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('bedtime-words-v1')));
+  expect(saved.own.map((item) => [item.challenge, item.community || null, item.shared || false])).toEqual([
+    ['I share', 'sub-1', false], ['When I feel left out,', null, true],
+  ]);
+  expect(saved.hearted).toEqual(['sub-1']);
 });

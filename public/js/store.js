@@ -3,6 +3,8 @@
  * never collide with the pool's numeric ids. Every storage call is guarded: when storage is
  * blocked, the page still works for the visit and `persistent` turns false. `simple` lists the
  * pool ids a family switched to the simpler wording; each choice lasts until they switch back.
+ * Affirmations added from other families are kept as own copies (with `community` set to the
+ * shared id) so they work offline; `hearted` remembers which shared ones this device hearted.
  */
 (function (root) {
   'use strict';
@@ -21,7 +23,13 @@
 
     function defaults() {
       return {
-        version: VERSION, rotation: DEFAULT_ROTATION.slice(), own: [], simple: [], prefs: { ...DEFAULT_PREFS }, device: uuid(),
+        version: VERSION,
+        rotation: DEFAULT_ROTATION.slice(),
+        own: [],
+        simple: [],
+        hearted: [],
+        prefs: { ...DEFAULT_PREFS },
+        device: uuid(),
       };
     }
 
@@ -36,6 +44,7 @@
           rotation: Array.isArray(parsed.rotation) ? parsed.rotation : DEFAULT_ROTATION.slice(),
           own: Array.isArray(parsed.own) ? parsed.own.filter(validOwn) : [],
           simple: Array.isArray(parsed.simple) ? parsed.simple.filter((id) => typeof id === 'number') : [],
+          hearted: Array.isArray(parsed.hearted) ? parsed.hearted.filter((id) => typeof id === 'string') : [],
           prefs: { ...DEFAULT_PREFS, ...(parsed.prefs || {}) },
           device: typeof parsed.device === 'string' ? parsed.device : uuid(),
         };
@@ -97,6 +106,7 @@
 
     return {
       get persistent() { ensure(); return persistent; },
+      get device() { ensure(); return data.device; },
 
       prefs() {
         ensure();
@@ -128,7 +138,14 @@
 
       addOwn(input) {
         requirePool();
+        const copy = input.community && data.own.find((item) => item.community === input.community);
+        if (copy) {
+          if (!data.rotation.includes(copy.id)) data.rotation.push(copy.id);
+          write();
+          return { ...view(), added: copy };
+        }
         const added = { id: `o-${uuid()}`, ...fields(input) };
+        if (input.community) added.community = String(input.community);
         data.own.push(added);
         data.rotation.push(added.id);
         write();
@@ -152,6 +169,25 @@
         if (on) data.simple.push(id);
         write();
         return view();
+      },
+
+      markShared(id) {
+        requirePool();
+        const item = data.own.find((other) => other.id === id);
+        if (item) item.shared = true;
+        write();
+        return view();
+      },
+
+      hearted() {
+        ensure();
+        return data.hearted.slice();
+      },
+
+      markHearted(id) {
+        ensure();
+        if (!data.hearted.includes(id)) data.hearted.push(id);
+        write();
       },
 
       deleteOwn(id) {
