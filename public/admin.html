@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="robots" content="noindex">
+  <title>Admin · Bedtime Words</title>
+  <link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
+  <link rel="stylesheet" href="/css/page.css">
+</head>
+<body>
+  <main>
+    <a class="back" href="/">← Bedtime words</a>
+    <h1>shared affirmations</h1>
+    <p class="note" id="who"></p>
+    <div class="tabs" role="group" aria-label="Show">
+      <button type="button" data-status="pending" aria-pressed="true">Waiting</button>
+      <button type="button" data-status="approved" aria-pressed="false">Approved</button>
+      <button type="button" data-status="rejected" aria-pressed="false">Rejected</button>
+    </div>
+    <p class="note" id="status" role="status"></p>
+    <div id="list"></div>
+  </main>
+  <script src="/js/admin.js" defer></script>
+</body>
+</html>

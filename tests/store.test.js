@@ -133,3 +133,24 @@ test('pool wording: every simpler version has both halves, and #5 reads as revie
   assert.equal(POOL.affirmations.filter((item) => item.simple).length, 41);
   assert.equal(POOL.affirmations.find((item) => item.id === 5).response, 'confidence I can figure it out.');
 });
+
+test('community copies: adding a shared affirmation keeps one local copy, and shared/hearted marks persist', async () => {
+  // protects=an affirmation from other families works offline and is not duplicated; fails_when=adding twice makes two copies, or shared/hearted marks are lost on reload; no_claim=the community API (not involved)
+  const storage = memoryStorage();
+  const store = make(storage);
+  await store.load();
+  const first = store.addOwn({ challenge: 'A', response: 'b', category: 'Kindness', community: 'sub-1' }).added;
+  const again = store.addOwn({ challenge: 'A', response: 'b', category: 'Kindness', community: 'sub-1' }).added;
+  assert.equal(first.id, again.id);
+  const mine = store.addOwn({ challenge: 'C', response: 'd' }).added;
+  store.markShared(mine.id);
+  store.markHearted('sub-1');
+  const reloaded = make(storage);
+  const view = await reloaded.load();
+  const own = view.affirmations.filter((item) => item.custom);
+  assert.equal(own.length, 2);
+  assert.equal(own.find((item) => item.id === first.id).community, 'sub-1');
+  assert.equal(own.find((item) => item.id === mine.id).shared, true);
+  assert.deepEqual(reloaded.hearted(), ['sub-1']);
+  assert.equal(typeof reloaded.device, 'string');
+});

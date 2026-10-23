@@ -600,3 +600,27 @@ dialog.sheet[open] { animation: sheet-in 280ms var(--ease-out); }
 
 .credits { font-size: .8rem; }
 .credits a { color: inherit; }
+
+/* ---------- From other families ---------- */
+
+/* A doodled heart; hatched red once this device has hearted it. */
+.heart-button {
+  display: inline-flex; align-items: center; gap: 4px;
+  min-height: 44px; padding: 0 10px 0 6px;
+  border: 0; border-radius: 22px; background: transparent; color: var(--red);
+  font-family: var(--label); font-weight: 700; font-size: 1.15rem;
+  cursor: pointer;
+  transition: transform 120ms var(--ease-out);
+}
+.heart-button svg { width: 30px; height: 30px; overflow: visible; }
+.heart-button .heart-shape { fill: var(--paper); transition: fill 160ms ease; }
+.heart-button[aria-pressed="true"] .heart-shape { fill: url(#hatch-red); }
+.heart-button:active { transform: scale(.9); }
+.heart-button[aria-pressed="true"] svg { animation: heart-pop 260ms var(--ease-out); }
+@keyframes heart-pop { 0% { transform: scale(.85); } 60% { transform: scale(1.12); } 100% { transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .heart-button[aria-pressed="true"] svg { animation: none; }
+}
+
+.share-link { justify-self: start; text-decoration: underline wavy; text-underline-offset: 4px; }
+.turnstile { min-height: 65px; }
