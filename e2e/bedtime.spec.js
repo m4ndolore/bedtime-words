@@ -63,16 +63,18 @@ test('blocked storage: the page renders, a session runs, and says it will not re
 });
 
 test('simpler words: one tap switches that affirmation only, and it stays switched after a reload', async ({ page }) => {
-  // protects=a family can make one hard affirmation easier without a global setting; fails_when=the toggle shows on one with no simpler version, changes the wrong card, or forgets after reload; no_claim=sound, animation timing
+  // protects=a family can make one hard affirmation easier without a global setting; fails_when=the block is missing on a built-in card, changes one that has no simpler version, changes the wrong card, or forgets after reload; no_claim=sound, animation timing
   await page.goto('/');
   await page.locator('#begin').click();
   await expect(page.locator('#challenge')).toHaveText('I can do');
-  await expect(page.locator('#wording')).toBeHidden();
+  await page.locator('#wording').click();
+  await expect(page.locator('#toast-text')).toHaveText('This one is already as simple as it gets.');
+  await expect(page.locator('#challenge')).toHaveText('I can do');
   await tapCard(page); await tapCard(page); await tapCard(page); await tapCard(page);
   await expect(page.locator('#challenge')).toHaveText('I am capable of anything');
   await page.locator('#wording').click();
   await expect(page.locator('#challenge')).toHaveText('I can');
-  await expect(page.locator('#wording')).toHaveText('original words');
+  await expect(page.locator('#wording')).toHaveAttribute('aria-pressed', 'true');
 
   await page.reload();
   await page.locator('#begin').click();
@@ -81,7 +83,9 @@ test('simpler words: one tap switches that affirmation only, and it stays switch
   await expect(page.locator('#challenge')).toHaveText('I can');
   await tapCard(page);
   await expect(page.locator('#response')).toHaveText('do it.');
+  await expect(page.locator('#wording')).toHaveAttribute('aria-pressed', 'true');
   await page.locator('#wording').click();
+  await expect(page.locator('#wording')).toHaveAttribute('aria-pressed', 'false');
   await expect(page.locator('#challenge')).toHaveText('I am capable of anything');
   await expect(page.locator('#response')).toHaveText('I put my mind to.');
 });
