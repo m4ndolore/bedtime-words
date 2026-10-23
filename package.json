@@ -1,0 +1,15 @@
+{
+  "name": "bedtime-words",
+  "private": true,
+  "description": "Say affirmations together at bedtime. Static site served by Cloudflare Pages.",
+  "license": "MIT",
+  "scripts": {
+    "serve": "node tests/serve.js",
+    "test": "node --test tests/*.test.js",
+    "e2e": "playwright test",
+    "deploy": "wrangler pages deploy public --project-name bedtime-words --branch main"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1"
+  }
+}
