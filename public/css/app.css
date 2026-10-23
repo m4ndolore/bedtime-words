@@ -1,0 +1,574 @@
+/* Bedtime words: doodles on paper, after Kevin Ngo's doodle chess. The challenge is drawn in
+   indigo pencil, the response in red-orange pencil, on cream paper by day and blue paper at night. */
+
+@font-face {
+  font-family: "Patrick Hand";
+  src: url("/fonts/patrick-hand-latin.woff2") format("woff2");
+  font-display: swap;
+}
+@font-face {
+  font-family: "Gaegu";
+  src: url("/fonts/gaegu-latin-400.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Gaegu";
+  src: url("/fonts/gaegu-latin-700.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+
+:root {
+  --paper: #f3eee2;
+  --paper-deep: #e9e1cf;
+  --line: #34302d;
+  --soft: #6f675d;
+  --blue: #3a3d98;
+  --blue-wash: #5a64d62e;
+  --blue-tint: #6f78e012;
+  --blue-hatch: #5a5fc2;
+  --red: #bf3f2a;
+  --red-wash: #e0603f2e;
+  --red-tint: #e0704f10;
+  --red-hatch: #d9573f;
+  --peach-hatch: #eda25f;
+  --yellow-hatch: #e3b23c;
+  --green-hatch: #7fae68;
+  --blush: #e7837a;
+  --spot: #fbf6ea;
+  --noise-opacity: 0.32;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --hand: "Patrick Hand", "Comic Sans MS", "Chalkboard SE", ui-rounded, cursive;
+  --label: "Gaegu", "Patrick Hand", "Chalkboard SE", ui-rounded, cursive;
+  --ui: ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+  color-scheme: light;
+}
+
+:root[data-paper="night"] {
+  --paper: #1d2232;
+  --paper-deep: #252b3e;
+  --line: #e6dfcf;
+  --soft: #a9a497;
+  --blue: #aab3ff;
+  --blue-wash: #aab3ff1f;
+  --blue-tint: #aab3ff0a;
+  --blue-hatch: #8189e0;
+  --red: #ffa287;
+  --red-wash: #ff8d6e1f;
+  --red-tint: #ff8d6e0a;
+  --red-hatch: #e9765c;
+  --peach-hatch: #d99358;
+  --yellow-hatch: #e8c25a;
+  --green-hatch: #7aa565;
+  --blush: #f08d84;
+  --spot: #fff3dc;
+  --noise-opacity: 0.18;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
+  background: var(--paper);
+}
+
+body {
+  margin: 0;
+  height: 100dvh;
+  overflow: hidden;
+  color: var(--line);
+  font-family: var(--hand);
+  background-color: var(--paper);
+  transition: background-color 400ms ease;
+}
+
+/* Paper grain: fractal noise, multiplied so it reads as fibres on both papers. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: var(--noise-opacity);
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .4 0 0 0 0 .33 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+:root[data-paper="night"] body::before { mix-blend-mode: screen; }
+
+button, a, [role="button"], label.toggle {
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+/* ---------- Drawing kit ---------- */
+
+.kit { position: absolute; width: 0; height: 0; }
+
+.ink {
+  stroke: var(--line);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ink:not([fill]) { fill: none; }
+.ink.thin { stroke-width: 1.6; }
+.ink.cloud-body, .ink.knob { fill: var(--paper); }
+.pupil { fill: var(--line); }
+.spot { fill: var(--spot); stroke: var(--line); stroke-width: 1.2; }
+.blush-dot { stroke: var(--blush); stroke-width: 3; stroke-linecap: round; fill: none; opacity: .8; }
+.grass { stroke: var(--green-hatch); }
+
+.hatch { stroke-width: 1.5; }
+.hatch--yellow { stroke: var(--yellow-hatch); stroke-width: 2; }
+.hatch--blue { stroke: var(--blue-hatch); stroke-width: 2.2; }
+.hatch--red { stroke: var(--red-hatch); stroke-width: 2.2; }
+.hatch--peach { stroke: var(--peach-hatch); }
+.hatch--green { stroke: var(--green-hatch); }
+
+/* Hand-drawn lines wobble; JS re-seeds the noise a few times a second so they gently "boil". */
+.doodle > :not(text) { filter: url(#wobble); }
+
+/* ---------- Background doodles ---------- */
+
+.doodles { position: fixed; inset: 0; pointer-events: none; }
+.bunting {
+  position: absolute; left: 0; right: 0;
+  top: calc(env(safe-area-inset-top, 0px) + 50px);
+  width: 100%; height: 40px; fill: url(#hatch-yellow);
+  opacity: .85;
+}
+.moon {
+  position: absolute; right: 10px; top: calc(env(safe-area-inset-top, 0px) + 84px);
+  width: 58px; height: 58px;
+}
+.snore { font-family: var(--label); font-size: 12px; fill: var(--soft); }
+.snore--big { font-size: 15px; }
+.cloud {
+  position: absolute; left: 6px; top: calc(env(safe-area-inset-top, 0px) + 96px);
+  width: 76px; height: 38px; opacity: .8;
+}
+.grass--left, .grass--right {
+  position: absolute; bottom: calc(env(safe-area-inset-bottom, 0px) + 6px);
+  width: 56px; height: 16px;
+}
+.grass--left { left: 10px; }
+.grass--right { right: 10px; }
+
+/* ---------- Layout ---------- */
+
+.bedtime {
+  position: relative;
+  height: 100dvh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  padding:
+    calc(env(safe-area-inset-top, 0px) + 8px)
+    calc(env(safe-area-inset-right, 0px) + 12px)
+    calc(env(safe-area-inset-bottom, 0px) + 8px)
+    calc(env(safe-area-inset-left, 0px) + 12px);
+}
+
+.top { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 48px; }
+
+.corner-button, .step-button {
+  display: grid; place-items: center;
+  width: 48px; height: 48px;
+  border: 0; border-radius: 50%;
+  background: transparent; color: inherit;
+  cursor: pointer;
+  transition: transform 120ms var(--ease-out), background-color 120ms;
+}
+.corner-button svg { width: 30px; height: 30px; }
+.step-button svg { width: 40px; height: 24px; }
+.corner-button:active, .step-button:active { transform: scale(.92); background: var(--paper-deep); }
+.step-button:disabled { opacity: .25; cursor: default; }
+
+.progress {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 2px;
+  list-style: none; margin: 0; padding: 0;
+  max-width: 70%;
+}
+.progress li { width: 22px; height: 22px; transition: transform 300ms var(--ease-out); }
+.progress svg { width: 100%; height: 100%; fill: none; display: block; }
+.progress li.done svg { fill: url(#hatch-yellow); }
+.progress li.current { transform: scale(1.25) rotate(-8deg); }
+
+.stage { position: relative; min-height: 0; padding-top: 96px; }
+
+.screen { height: 100%; }
+
+/* ---------- Start and end ---------- */
+
+.screen--start, .screen--done {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; gap: 14px; padding: 0 12px 6vh;
+}
+.kicker { margin: 0; font-family: var(--label); font-size: 1.35rem; color: var(--soft); }
+.start-title, .done-title {
+  margin: 0; font-weight: 400; line-height: 1;
+  font-size: clamp(2.6rem, 11vw, 5rem);
+}
+.start-title { color: var(--blue); }
+.done-title { color: var(--red); }
+.start-count { margin: 0; font-size: 1.4rem; color: var(--soft); }
+.start-note { margin: 0; min-height: 1.4em; font-family: var(--ui); font-size: .95rem; color: var(--soft); }
+
+.big-button {
+  margin-top: 8px;
+  min-width: 220px; min-height: 64px; padding: 10px 28px;
+  font: inherit; font-size: 1.8rem; color: var(--paper);
+  background: var(--blue);
+  border: 0;
+  /* A wobbly, hand-cut edge instead of a perfect pill. */
+  border-radius: 34px 28px 32px 26px / 30px 34px 26px 32px;
+  box-shadow: 3px 4px 0 var(--line);
+  cursor: pointer;
+  transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
+}
+.big-button:active { transform: translate(2px, 3px); box-shadow: 1px 1px 0 var(--line); }
+.big-button--soft { background: var(--red); }
+
+/* ---------- The card ---------- */
+
+.screen--card {
+  display: grid;
+  grid-template-rows: 1fr auto 1fr;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.half {
+  position: relative;
+  min-height: 0;
+  display: flex; flex-direction: column; justify-content: center; align-items: center;
+  padding: 10px 10px 14px;
+  text-align: center;
+  border-radius: 26px 18px 30px 20px / 20px 28px 18px 26px;
+}
+/* Each half is shaded with loose colored-pencil hatching in its own color. */
+.half--challenge {
+  color: var(--blue);
+  background:
+    repeating-linear-gradient(-32deg, var(--blue-wash) 0 1.6px, transparent 1.6px 7px),
+    var(--blue-tint);
+}
+.half--response {
+  color: var(--red);
+  background:
+    repeating-linear-gradient(38deg, var(--red-wash) 0 1.6px, transparent 1.6px 7px),
+    var(--red-tint);
+}
+
+.who {
+  position: absolute; top: 8px; left: 14px; margin: 0;
+  font-family: var(--label); font-weight: 700; font-size: 1.05rem; letter-spacing: .02em;
+  opacity: .75;
+}
+
+.words {
+  margin: 0;
+  width: 100%;
+  padding-top: .4rem;
+  line-height: 1.12;
+  font-size: 48px; /* JS fits this to the half */
+  overflow-wrap: break-word;
+  text-wrap: balance;
+}
+
+.words .w {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(8px) rotate(-2deg);
+  transition:
+    opacity 260ms var(--ease-out) calc(var(--i, 0) * 70ms),
+    transform 320ms var(--ease-out) calc(var(--i, 0) * 70ms);
+}
+.words.shown .w { opacity: 1; transform: none; }
+
+.hint {
+  position: absolute; bottom: 8px; left: 0; right: 0; margin: 0;
+  font-family: var(--label); font-size: 1.15rem; color: var(--soft);
+  transition: opacity 200ms ease;
+}
+.half--response.revealed .hint { opacity: 0; }
+
+/* Before the kids answer, a dotted pencil trail waits where the words will be. */
+.half--response::after {
+  content: "";
+  position: absolute; left: 22%; right: 22%; top: 52%;
+  border-top: 4px dotted var(--red);
+  opacity: .55;
+  transition: opacity 200ms ease;
+}
+.half--response.revealed::after { opacity: 0; }
+
+.divider-row { display: grid; grid-template-columns: 52px 1fr 52px; align-items: center; gap: 6px; }
+.divider { width: 100%; height: 14px; }
+.critter { width: 52px; height: 56px; overflow: visible; transition: transform 380ms var(--ease-out); }
+.critter .eyes--awake { display: none; }
+.critter.awake .eyes--awake { display: inline; }
+.critter.awake .eyes--asleep { display: none; }
+.critter.awake { animation: hop 520ms var(--ease-out); }
+
+.steps {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 4px 34px 0;
+}
+
+/* ---------- Sheets ---------- */
+
+dialog.sheet {
+  width: min(560px, 100vw);
+  max-width: 100vw;
+  max-height: 88dvh;
+  margin: auto auto 0;
+  padding: 0;
+  border: 0;
+  border-radius: 26px 26px 0 0;
+  color: var(--line);
+  background: var(--paper);
+  box-shadow: 0 -2px 0 var(--line), 0 -18px 40px #0000002e;
+  font-family: var(--ui);
+  overscroll-behavior: contain;
+}
+dialog.sheet::backdrop { background: #1a16124d; }
+@media (min-width: 700px) {
+  dialog.sheet { margin: auto; border-radius: 28px; box-shadow: 3px 4px 0 var(--line), 0 18px 40px #0000002e; }
+}
+dialog.sheet[open] { animation: sheet-in 280ms var(--ease-out); }
+
+.sheet-body {
+  display: grid; gap: 12px;
+  padding: 18px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+}
+.sheet--tall .sheet-body { max-height: 88dvh; overflow-y: auto; overscroll-behavior: contain; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; }
+.sheet-head h2 { margin: 0; font-family: var(--hand); font-weight: 400; font-size: 2rem; color: var(--blue); }
+.sheet-note { margin: 0; font-size: .95rem; line-height: 1.4; color: var(--soft); }
+
+.toggle {
+  display: flex; align-items: center; gap: 12px;
+  min-height: 48px; padding: 6px 12px;
+  border-radius: 14px; background: var(--paper-deep);
+  font-size: 1rem; cursor: pointer;
+}
+.toggle input { width: 22px; height: 22px; accent-color: var(--blue); }
+
+.wide-button, .text-button {
+  min-height: 48px; padding: 10px 18px;
+  font: inherit; font-weight: 600; font-size: 1rem;
+  border: 0; border-radius: 14px; cursor: pointer;
+  transition: transform 120ms var(--ease-out);
+}
+.wide-button { background: var(--blue); color: var(--paper); }
+.text-button { background: transparent; color: var(--blue); padding-inline: 10px; }
+.wide-button:active, .text-button:active { transform: scale(.97); }
+.wide-button:disabled { opacity: .45; }
+
+.editor-status { margin: 0; min-height: 1.3em; font-size: .9rem; color: var(--soft); }
+.editor-status.error { color: var(--red); }
+.editor-actions { display: grid; gap: 8px; }
+.start-fresh { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: .95rem; color: var(--soft); }
+.start-fresh select {
+  font: inherit; font-size: 16px; min-height: 40px; padding: 4px 8px;
+  border-radius: 10px; border: 1.5px solid var(--line); background: var(--paper); color: var(--line);
+}
+
+.pick-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.pick {
+  display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px;
+  padding: 10px 10px 10px 14px;
+  border-radius: 16px; background: var(--paper-deep);
+}
+.pick-text { margin: 0; font-family: var(--hand); font-size: 1.2rem; line-height: 1.25; }
+.pick-text .c { color: var(--blue); }
+.pick-text .r { color: var(--red); }
+.pick-meta { display: block; margin-top: 2px; font-family: var(--ui); font-size: .78rem; color: var(--soft); }
+.pick-button {
+  min-width: 76px; min-height: 44px;
+  font: inherit; font-family: var(--ui); font-weight: 600; font-size: .95rem;
+  border: 1.5px solid var(--line); border-radius: 12px;
+  background: var(--paper); color: var(--line); cursor: pointer;
+}
+.pick-button:active { transform: scale(.96); }
+.pick-button--add { background: var(--blue); border-color: var(--blue); color: var(--paper); }
+.pick-number { font-family: var(--label); font-weight: 700; color: var(--soft); margin-right: 4px; }
+
+.pool-title { margin: 8px 0 0; font-family: var(--hand); font-weight: 400; font-size: 1.6rem; color: var(--red); }
+.pool details { border-top: 1.5px dashed var(--soft); padding: 6px 0; }
+.pool summary {
+  min-height: 44px; display: flex; align-items: center; justify-content: space-between;
+  font-weight: 600; cursor: pointer; list-style: none;
+}
+.pool summary::-webkit-details-marker { display: none; }
+.pool summary small { font-weight: 400; color: var(--soft); }
+.pool .pick-list { padding: 4px 0 10px; }
+.pool-empty { margin: 0; color: var(--soft); font-size: .95rem; }
+
+
+@media (hover: hover) and (pointer: fine) {
+  .corner-button:hover, .step-button:not(:disabled):hover { background: var(--paper-deep); }
+  .pick-button:hover { background: var(--paper-deep); }
+  .pick-button--add:hover { background: var(--blue); filter: brightness(1.1); }
+}
+
+/* Tablets: more room around the doodles, larger corner controls. */
+@media (min-width: 700px) and (min-height: 600px) {
+  .bunting { height: 56px; top: calc(env(safe-area-inset-top, 0px) + 54px); }
+  .moon { width: 84px; height: 84px; right: 28px; }
+  .cloud { width: 110px; height: 55px; left: 24px; }
+  .stage { padding-top: 120px; }
+  .divider-row { grid-template-columns: 72px 1fr 72px; }
+  .critter { width: 72px; height: 78px; }
+  .who, .hint { font-size: 1.3rem; }
+}
+
+/* Landscape phones: drop the sky so the words keep their space. */
+@media (max-height: 500px) {
+  .bunting, .moon, .cloud, .grass--left, .grass--right { display: none; }
+  .stage { padding-top: 0; }
+}
+
+@keyframes hop {
+  0% { transform: translateY(0); }
+  40% { transform: translateY(-10px) rotate(-4deg); }
+  100% { transform: translateY(0); }
+}
+@keyframes sheet-in {
+  from { transform: translateY(24px); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .words .w { transform: none; transition: opacity 200ms ease; transition-delay: 0ms; }
+  .critter.awake { animation: none; }
+  dialog.sheet[open] { animation: none; }
+}
+
+/* The star on the blob's antenna takes its fill from the <use>, like the bunting. */
+.critter use { fill: url(#hatch-yellow); }
+
+/* On the kitchen wall the page sits in a frame with its own "Home" bar. */
+
+/* ---------- − and + ---------- */
+
+.step-mid { display: flex; gap: 14px; margin-inline: auto; }
+.round-button {
+  display: grid; place-items: center;
+  width: 48px; height: 48px;
+  border: 2px solid var(--line);
+  border-radius: 52% 48% 50% 50% / 48% 52% 48% 52%;
+  background: var(--paper);
+  color: inherit;
+  cursor: pointer;
+  transition: transform 120ms var(--ease-out);
+}
+.round-button svg { width: 26px; height: 26px; }
+.round-button--plus { background: var(--blue); border-color: var(--blue); }
+.round-button--plus .ink { stroke: var(--paper); }
+.round-button:active { transform: scale(.9); }
+
+.toast {
+  position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 74px);
+  transform: translateX(-50%);
+  display: flex; align-items: center; gap: 12px;
+  width: max-content; max-width: calc(100vw - 32px);
+  padding: 10px 10px 10px 16px;
+  border-radius: 16px;
+  background: var(--line); color: var(--paper);
+  font-family: var(--ui); font-size: .95rem; line-height: 1.3;
+  box-shadow: 0 10px 24px #0000003a;
+  transition: opacity 200ms var(--ease-out), transform 240ms var(--ease-out);
+  z-index: 5;
+}
+.toast-undo {
+  flex: none; min-height: 40px; padding: 6px 14px;
+  border: 0; border-radius: 12px;
+  background: var(--paper); color: var(--line);
+  font: inherit; font-weight: 700; cursor: pointer;
+}
+/* A transition, not a keyframe, so a toast shown again mid-entry carries on from where it is. */
+@starting-style { .toast { transform: translate(-50%, 16px); opacity: 0; } }
+
+/* ---------- Add one more ---------- */
+
+.chips {
+  display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px;
+  scroll-snap-type: x proximity; overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.chips::-webkit-scrollbar { display: none; }
+.chip {
+  flex: none; scroll-snap-align: start;
+  min-height: 40px; padding: 6px 14px;
+  border: 1.5px solid var(--line); border-radius: 999px;
+  background: var(--paper); color: var(--line);
+  font: inherit; font-size: .9rem; cursor: pointer;
+  touch-action: manipulation; user-select: none; -webkit-user-select: none;
+}
+.chip[aria-pressed="true"] { background: var(--blue); border-color: var(--blue); color: var(--paper); }
+
+.suggestion {
+  display: grid; gap: 10px;
+  padding: 16px;
+  border-radius: 22px 16px 24px 18px / 18px 24px 16px 22px;
+  background:
+    repeating-linear-gradient(-32deg, var(--blue-wash) 0 1.6px, transparent 1.6px 8px),
+    var(--paper-deep);
+}
+.suggestion-meta { margin: 0; font-size: .85rem; color: var(--soft); }
+.suggestion-words { margin: 0; font-family: var(--hand); font-size: 1.9rem; line-height: 1.15; }
+.suggestion-words .c { color: var(--blue); }
+.suggestion-words .r { color: var(--red); }
+.suggestion-actions { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+
+.writer { display: grid; gap: 10px; padding-top: 6px; border-top: 1.5px dashed var(--soft); }
+.field { display: grid; gap: 4px; font-size: .9rem; color: var(--soft); }
+.field input, .field select {
+  min-height: 48px; padding: 8px 12px;
+  border: 2px solid var(--line); border-radius: 14px;
+  background: var(--paper); color: var(--line);
+  font-family: var(--hand); font-size: 22px;
+}
+.field select { font-family: var(--ui); font-size: 16px; }
+.field--blue input { color: var(--blue); border-color: var(--blue); }
+.field--red input { color: var(--red); border-color: var(--red); }
+.writer-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.text-button--danger { color: var(--red); margin-right: auto; }
+.pick-buttons { display: flex; flex-direction: column; gap: 6px; }
+
+/* ---------- The whale ---------- */
+
+.whale-scene { margin: 4px 0 0; display: grid; justify-items: center; gap: 2px; }
+.whale { width: min(300px, 76vw); height: auto; overflow: visible; }
+.whale .water { stroke: var(--blue-hatch); }
+.whale .drop { fill: var(--blue-hatch); }
+.whale .sleepers use { fill: url(#hatch-yellow); }
+.whale-caption { font-family: var(--label); font-size: 1.2rem; color: var(--soft); }
+.whale > :not(.water) { animation: bob 4.2s ease-in-out infinite; }
+.whale .spout { transform-origin: 86px 34px; animation: spout 4.2s ease-in-out infinite; }
+
+@keyframes bob { 50% { transform: translateY(4px) rotate(.6deg); } }
+@keyframes spout {
+  0%, 55%, 100% { opacity: 0; transform: scale(.4); }
+  70%, 85% { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .whale > :not(.water), .whale .spout { animation: none; }
+  .toast { transition: opacity 200ms ease; }
+  @starting-style { .toast { transform: translateX(-50%); } }
+}
+
+.credits { font-size: .8rem; }
+.credits a { color: inherit; }

@@ -1,0 +1,19 @@
+@font-face { font-family: "Patrick Hand"; src: url("/fonts/patrick-hand-latin.woff2") format("woff2"); font-display: swap; }
+:root { --paper: #f3eee2; --ink: #2b2f3f; --soft: #5d6273; --blue: #3b4cc0; --red: #c8553d; --rule: #d9d1bf; }
+@media (prefers-color-scheme: dark) {
+  :root { --paper: #1d2232; --ink: #ece6d8; --soft: #aeb3c2; --blue: #9aa8ff; --red: #ff9a7f; --rule: #3a4058; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.5 system-ui, -apple-system, sans-serif; }
+main { max-width: 680px; margin: 0 auto; padding: 24px 16px 64px; }
+h1, h2 { font-family: "Patrick Hand", cursive; font-weight: 400; color: var(--blue); }
+h1 { font-size: 2.4rem; margin: 8px 0 4px; }
+h2 { font-size: 1.6rem; margin: 32px 0 8px; border-bottom: 1px solid var(--rule); }
+a { color: var(--blue); }
+.back { font-size: .95rem; }
+.note { color: var(--soft); }
+ol.words { padding-left: 2.6em; margin: 0; }
+ol.words li { margin: 6px 0; }
+.c { color: var(--blue); }
+.r { color: var(--red); }
+.id { color: var(--soft); font-size: .8rem; margin-left: 6px; font-variant-numeric: tabular-nums; }
