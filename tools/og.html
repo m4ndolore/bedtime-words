@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<!-- Source for public/og.jpg, the link preview image. Render with: node tools/render-og.js -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  @font-face { font-family: "Patrick Hand"; src: url("../public/fonts/patrick-hand-latin.woff2") format("woff2"); }
+  @font-face { font-family: "Gaegu"; font-weight: 400; src: url("../public/fonts/gaegu-latin-400.woff2") format("woff2"); }
+  @font-face { font-family: "Gaegu"; font-weight: 700; src: url("../public/fonts/gaegu-latin-700.woff2") format("woff2"); }
+  :root { --paper: #f3eee2; --line: #34302d; --soft: #6f675d; --blue: #3a3d98; --red: #bf3f2a; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 1200px; height: 630px; overflow: hidden; }
+  body {
+    position: relative; background: var(--paper); color: var(--line);
+    font-family: "Patrick Hand", cursive;
+  }
+  body::before {
+    content: ""; position: absolute; inset: 0; opacity: .32; pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .4 0 0 0 0 .33 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .ink { stroke: var(--line); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+  .ink:not([fill]) { fill: none; }
+  .thin { stroke-width: 1.8; }
+  .hatch { stroke-width: 2.2; }
+  .doodle > * { filter: url(#wobble); }
+  .bunting { position: absolute; left: -10px; right: -10px; top: 6px; width: 1220px; height: 70px; }
+  .left { position: absolute; left: 72px; top: 118px; width: 520px; }
+  .kicker { margin: 0; font-family: "Gaegu"; font-size: 34px; color: var(--soft); }
+  h1 { margin: 6px 0 18px; font-weight: 400; font-size: 84px; line-height: 1; color: var(--blue); }
+  .sub { margin: 0; font-family: "Gaegu"; font-size: 34px; line-height: 1.2; color: var(--soft); }
+  .url { position: absolute; left: 72px; bottom: 54px; margin: 0; font-family: "Gaegu"; font-weight: 700; font-size: 36px; color: var(--line); }
+  .card { position: absolute; right: 64px; width: 470px; display: grid; gap: 10px; top: 112px; }
+  .half {
+    height: 170px; display: grid; place-items: center; position: relative;
+    border-radius: 26px 18px 30px 20px / 20px 28px 18px 26px; font-size: 76px;
+  }
+  .who { position: absolute; top: 10px; left: 18px; margin: 0; font-family: "Gaegu"; font-weight: 700; font-size: 24px; opacity: .75; }
+  .c { color: var(--blue); background: repeating-linear-gradient(-32deg, #5a64d62e 0 1.6px, transparent 1.6px 7px), #6f78e012; }
+  .r { color: var(--red); background: repeating-linear-gradient(38deg, #e0603f2e 0 1.6px, transparent 1.6px 7px), #e0704f10; }
+  .between { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  .between svg.critter { width: 58px; height: 64px; }
+  .between svg.line { flex: 1; height: 16px; margin: 0 8px; }
+  .moon { position: absolute; left: 470px; top: 64px; width: 96px; height: 96px; }
+</style>
+</head>
+<body>
+  <svg width="1" height="1" style="position:absolute;left:0;top:0" aria-hidden="true">
+    <defs>
+      <filter id="wobble" x="-10%" y="-10%" width="120%" height="120%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="2"/>
+        <feDisplacementMap in="SourceGraphic" scale="2.6" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+      <pattern id="hy" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><line x1="0" y1="0" x2="0" y2="5" stroke="#e8b730" class="hatch"/></pattern>
+      <pattern id="hb" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(-30)"><line x1="0" y1="0" x2="0" y2="4" stroke="#5a5fc2" class="hatch"/></pattern>
+      <pattern id="hr" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(40)"><line x1="0" y1="0" x2="0" y2="4" stroke="#d9573f" class="hatch"/></pattern>
+      <pattern id="hp" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(-40)"><line x1="0" y1="0" x2="0" y2="4" stroke="#e9a27f" class="hatch"/></pattern>
+      <symbol id="star" viewBox="-12 -12 24 24"><path class="ink" fill="url(#hy)" d="M0-10.5 3 -3.4 10.6-3 4.7 1.9 6.6 9.6 0 5.4-6.4 9.8-4.6 2.1-10.4-3.2-2.9-3.5Z"/></symbol>
+    </defs>
+  </svg>
+
+  <svg class="bunting doodle" viewBox="0 0 1200 70" preserveAspectRatio="none" aria-hidden="true">
+    <path class="ink thin" d="M-4 10Q300 54 600 36T1204 12"/>
+    <use href="#star" x="60" y="18" width="24" height="24"/><use href="#star" x="190" y="30" width="26" height="26"/>
+    <use href="#star" x="330" y="36" width="22" height="22"/><use href="#star" x="470" y="38" width="26" height="26"/>
+    <use href="#star" x="620" y="32" width="22" height="22"/><use href="#star" x="770" y="26" width="26" height="26"/>
+    <use href="#star" x="920" y="18" width="22" height="22"/><use href="#star" x="1060" y="12" width="26" height="26"/>
+  </svg>
+
+  <svg class="moon doodle" viewBox="0 0 80 80" aria-hidden="true">
+    <path class="ink" fill="url(#hy)" d="M50 8C30 10 16 26 17 45s18 32 37 30c-14-6-22-19-21-34S41 13 50 8Z"/>
+    <path class="ink thin" d="M27 41q3 3 6 0"/>
+    <text x="58" y="26" font-family="Gaegu" font-size="14" fill="#6f675d">z</text>
+    <text x="64" y="14" font-family="Gaegu" font-size="18" fill="#6f675d">z</text>
+  </svg>
+
+  <div class="left">
+    <p class="kicker">bedtime words</p>
+    <h1>say it together at bedtime</h1>
+    <p class="sub">A grown-up reads the first half. The kids shout the rest.</p>
+  </div>
+  <p class="url">affirmations.buildwith.dad</p>
+
+  <div class="card">
+    <div class="half c"><p class="who">grown-up says</p>I can't do it…</div>
+    <div class="between">
+      <svg class="critter doodle" viewBox="0 0 70 80" aria-hidden="true">
+        <path class="ink" fill="url(#hb)" d="M12 70c-6 0-6-6-3-12 2-16 8-32 26-34 18 1 24 18 26 34 3 6 2 12-4 12Z"/>
+        <circle cx="27" cy="49" r="3.3" fill="#34302d"/><circle cx="43" cy="49" r="3.3" fill="#34302d"/>
+      </svg>
+      <svg class="line doodle" viewBox="0 0 300 16" preserveAspectRatio="none" aria-hidden="true"><path class="ink thin" d="M2 9C40 3 70 13 110 8s70-6 100 0 60 5 88-1"/></svg>
+      <svg class="critter doodle" viewBox="0 0 80 80" aria-hidden="true">
+        <path class="ink" fill="url(#hr)" d="M6 38C6 20 22 8 40 8s34 12 34 30c-10 4-58 4-68 0Z"/>
+        <path class="ink" fill="url(#hp)" d="M18 40c-2 14 2 30 22 30s24-16 22-30c-12 3-32 3-44 0Z"/>
+        <circle cx="31" cy="52" r="3.3" fill="#34302d"/><circle cx="48" cy="52" r="3.3" fill="#34302d"/>
+        <path class="ink thin" d="M36 60q4 3 8 0"/>
+      </svg>
+    </div>
+    <div class="half r"><p class="who">kids say</p>yet!</div>
+  </div>
+</body>
+</html>

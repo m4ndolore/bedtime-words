@@ -5,7 +5,9 @@ import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-const MIGRATION = readFileSync(fileURLToPath(new URL('../migrations/0001_community.sql', import.meta.url)), 'utf8');
+const MIGRATION = ['0001_community.sql', '0002_channel_visits.sql']
+  .map((name) => readFileSync(fileURLToPath(new URL(`../migrations/${name}`, import.meta.url)), 'utf8'))
+  .join('\n');
 
 class Statement {
   constructor(db, sql, args = []) { this.db = db; this.sql = sql; this.args = args; }

@@ -281,3 +281,25 @@ test('mailer down: the submission is still stored as pending and shows in admin'
   const listed = await (await call(env, request('GET', '/api/admin/submissions?status=pending', undefined, { 'Cf-Access-Jwt-Assertion': token }))).json();
   assert.deepEqual(listed.submissions.map((row) => row.id), [id]);
 });
+
+test('channel links: a person counts once per visit, preview bots and bad names do not, and everyone lands home', async (t) => {
+  // protects=per-channel visit counts mean people, not link-preview fetchers; fails_when=a bot or malformed channel is counted, a visit is not, or the redirect is not to /; no_claim=every bot's user agent (a list of common preview fetchers stands in)
+  const keys = await accessKeys();
+  t.after(stubFetch(keys.certs));
+  const env = fakeEnv();
+  const phone = { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148' };
+  for (let i = 0; i < 3; i += 1) {
+    const response = await call(env, request('GET', '/go/class', undefined, phone));
+    assert.equal(response.status, 302);
+    assert.equal(response.headers.get('Location'), '/');
+  }
+  await call(env, request('GET', '/go/x', undefined, phone), NOW - 10 * DAY);
+  await call(env, request('GET', '/go/class', undefined, { 'User-Agent': 'facebookexternalhit/1.1 Facebot Twitterbot/1.0' }));
+  await call(env, request('GET', '/go/class', undefined, { 'User-Agent': 'WhatsApp/2.23' }));
+  await call(env, request('GET', '/go/Not_OK!', undefined, phone));
+  await call(env, request('GET', '/go/class')); // no user agent
+  const token = await keys.sign({ aud: ['aud-123'], iss: 'https://team.example.test', email: 'maintainer@example.test', exp: NOW / 1000 + 600 });
+  const { channels } = await (await call(env, request('GET', '/api/admin/channels', undefined, { 'Cf-Access-Jwt-Assertion': token }))).json();
+  assert.deepEqual(channels.map(({ channel, total, week }) => [channel, total, week]), [['class', 3, 3], ['x', 1, 0]]);
+  assert.equal((await call(env, request('GET', '/api/admin/channels'))).status, 403);
+});

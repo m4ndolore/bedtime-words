@@ -7,6 +7,7 @@
  *   GET  /review/<token>         emailed review page; never changes anything
  *   POST /api/review/<token>     approve or reject from that page
  *   /admin, /api/admin/*         maintainers only, behind Cloudflare Access
+ *   GET  /go/<channel>           count a visit from a shared link, then go home
  */
 import pool from '../public/pool.json' with { type: 'json' };
 import validate from '../public/js/validate.js';
@@ -17,6 +18,9 @@ const CATEGORIES = [...pool.categories.map((category) => category.name), 'Our Ow
 const LIMITS = { submit: 20, heart: 120 };
 const HOUR = 3600;
 const KEEP_CONTACT_DAYS = 90;
+const CHANNEL = /^[a-z0-9-]{1,32}$/;
+// Link-preview fetchers (chat apps, social sites, search) open every pasted link; they are not visits.
+const PREVIEW_BOT = /bot|crawl|spider|preview|facebookexternalhit|whatsapp|slack|discord|telegram|linkedin|embedly|iframely|skype|pinterest|vkshare|redditbot|mastodon|bluesky|headless/i;
 
 function json(body, status = 200, headers = {}) {
   return new Response(JSON.stringify(body), {
@@ -216,6 +220,14 @@ async function admin(request, env, url, now) {
     ).bind(status).all();
     return json({ maintainer: who, submissions: results });
   }
+  if (url.pathname === '/api/admin/channels' && request.method === 'GET') {
+    const weekAgo = new Date(now - 6 * 86400 * 1000).toISOString().slice(0, 10);
+    const { results } = await env.DB.prepare(
+      'SELECT channel, SUM(count) AS total, SUM(CASE WHEN day >= ?1 THEN count ELSE 0 END) AS week, MAX(day) AS last '
+      + 'FROM channel_visits GROUP BY channel ORDER BY total DESC',
+    ).bind(weekAgo).all();
+    return json({ channels: results.map((row) => ({ ...row, total: Number(row.total), week: Number(row.week) })) });
+  }
   if (url.pathname === '/api/admin/decide' && request.method === 'POST') {
     // The Access session is a cookie, so refuse anything another site could forge: forms and foreign origins.
     const sameOrigin = request.headers.get('Origin') === url.origin;
@@ -235,6 +247,18 @@ async function admin(request, env, url, now) {
   return json({ error: 'Not found.' }, 404);
 }
 
+/* /go/<channel>: count one visit for the channel today, then send the visitor home. */
+async function go(request, env, channel, now) {
+  const agent = request.headers.get('User-Agent') || '';
+  if (request.method === 'GET' && CHANNEL.test(channel) && agent && !PREVIEW_BOT.test(agent)) {
+    await env.DB.prepare(
+      'INSERT INTO channel_visits (channel, day, count) VALUES (?1, ?2, 1) '
+      + 'ON CONFLICT (channel, day) DO UPDATE SET count = count + 1',
+    ).bind(channel, new Date(now).toISOString().slice(0, 10)).run();
+  }
+  return new Response(null, { status: 302, headers: { Location: '/', 'Cache-Control': 'no-store' } });
+}
+
 /* Daily: forget contacts 90 days after a decision, and drop old rate-limit windows. */
 export async function purge(env, now) {
   const cutoff = new Date(now - KEEP_CONTACT_DAYS * 86400 * 1000).toISOString();
@@ -247,6 +271,7 @@ export async function route(request, env, ctx, now = Date.now()) {
   const url = new URL(request.url);
   const path = url.pathname;
   if (path.startsWith('/admin') || path.startsWith('/api/admin/')) return admin(request, env, url, now);
+  if (path.startsWith('/go/')) return go(request, env, path.slice('/go/'.length), now);
   if (path.startsWith('/review/') && request.method === 'GET') return reviewPage(env, path.slice('/review/'.length), now);
   if (path.startsWith('/api/review/') && request.method === 'POST') {
     return reviewDecision(request, env, path.slice('/api/review/'.length), now);
