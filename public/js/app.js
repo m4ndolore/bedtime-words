@@ -815,7 +815,13 @@
 
     const next = state.pool.find((item) => !inRotation.has(item.id));
     $('add-next').disabled = !next;
-    $('add-next').textContent = next ? `Add the next one: "${saying(next)}"` : 'Every affirmation is in the rotation';
+    $('add-next').textContent = next ? 'Add the next one' : 'Every affirmation is in the rotation';
+    if (next) {
+      const words = wording(next);
+      $('next-words').replaceChildren(el('span', { class: 'c', text: words.challenge }), ' ',
+        el('span', { class: 'r', text: words.response }), el('span', { class: 'pick-meta', text: `Up next · ${next.category}` }));
+    }
+    $('next-words').hidden = !next;
 
     const select = $('fresh-count');
     if (select.options.length !== state.pool.length) {
