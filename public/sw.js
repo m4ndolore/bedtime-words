@@ -1,6 +1,6 @@
 /* Caches the page shell so bedtime works offline after the first visit.
  * Bump CACHE on every release so phones pick up the new files. */
-const CACHE = 'bedtime-words-2026-10-23f';
+const CACHE = 'bedtime-words-2026-10-23g';
 const SHELL = [
   '/',
   '/css/app.css',
@@ -34,7 +34,7 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (request.method !== 'GET' || url.origin !== self.location.origin) return;
   // Shared affirmations, review links and admin always go to the network.
-  if (/^\/(api|review|admin)(\/|$)/.test(url.pathname)) return;
+  if (/^\/(api|review|admin|go)(\/|$)/.test(url.pathname)) return;
   const fresh = request.mode === 'navigate' || url.pathname === '/pool.json';
   if (fresh) {
     event.respondWith(

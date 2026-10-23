@@ -62,6 +62,24 @@
     }));
   }
 
+  async function channels() {
+    const response = await fetch('/api/admin/channels');
+    if (!response.ok) return;
+    const rows = (await response.json()).channels;
+    $('channels').replaceChildren(...(rows.length ? rows : [null]).map((row) => {
+      const tr = el('tr');
+      if (!row) {
+        const td = el('td', 'note', 'No visits through /go/ links yet.');
+        td.colSpan = 4;
+        tr.append(td);
+        return tr;
+      }
+      tr.append(el('td', null, `/go/${row.channel}`), el('td', null, String(row.week)), el('td', null, String(row.total)), el('td', null, row.last));
+      return tr;
+    }));
+  }
+
   for (const tab of document.querySelectorAll('.tabs button')) tab.addEventListener('click', () => show(tab.dataset.status));
   show('pending');
+  channels();
 })();
