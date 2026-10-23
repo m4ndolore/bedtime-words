@@ -229,14 +229,19 @@
 
   function renderWordingToggle(item) {
     const button = $('wording');
-    button.hidden = !item.simple;
-    button.textContent = state.simple.has(item.id) ? 'original words' : 'simpler words';
+    // Every built-in affirmation shows the block, so it is always in the same place; own ones do not.
+    button.hidden = Boolean(item.custom);
+    button.setAttribute('aria-pressed', String(state.simple.has(item.id)));
   }
 
   function toggleWording(event) {
     event.stopPropagation();
     const item = byId(state.order[state.index]);
-    if (!item || !item.simple) return;
+    if (!item) return;
+    if (!item.simple) {
+      toast('This one is already as simple as it gets.');
+      return;
+    }
     const on = !state.simple.has(item.id);
     if (!change(() => accept(store.setSimple(item.id, on)), toastStatus)) return;
     const words = wording(item);

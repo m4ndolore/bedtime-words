@@ -100,7 +100,16 @@
       <section id="screen-card" class="screen screen--card" hidden aria-live="polite">
         <div class="half half--challenge">
           <p class="who">grown-up says</p>
-          <button type="button" id="wording" class="wording-toggle" hidden>simpler words</button>
+          <!-- A toy ABC block: tap for kid-sized words on this one affirmation. Hatched and starred when on. -->
+          <button type="button" id="wording" class="wording-toggle" aria-label="Simpler words for this one" aria-pressed="false" hidden>
+            <svg class="doodle" viewBox="0 0 40 40" aria-hidden="true">
+              <use class="wording-star" href="#star" x="26" y="-5" width="16" height="16"/>
+              <path class="ink block-face" d="M7 15.5c4.6-.4 9.4.3 14.2-.1.4 5 .1 10.2.2 15.3-4.8.3-9.6-.2-14.3.1-.3-5.1.2-10.2-.1-15.3Z"/>
+              <path class="ink block-top" d="M7 15.5c1.9-2 3.7-4 5.8-5.9 4.7.2 9.4-.1 14.1.1-1.9 2-3.8 3.9-5.7 5.7-4.7.2-9.5-.1-14.2.1Z"/>
+              <path class="ink block-side" d="M26.9 9.7c.2 5.1-.2 10.2.1 15.2-1.8 2-3.7 3.9-5.6 5.8-.1-5-.1-10.1-.2-15.2 1.9-1.9 3.8-3.8 5.7-5.8Z"/>
+              <path class="ink thin" d="M10.6 27.4c1.1-3.6 2.1-6.8 3.3-9.6 1.3 2.9 2.2 6.1 3.3 9.5M11.9 24h4.2"/>
+            </svg>
+          </button>
           <p id="challenge" class="words words--challenge"></p>
         </div>
         <div class="divider-row">

@@ -276,20 +276,32 @@ button, a, [role="button"], label.toggle {
   opacity: .75;
 }
 
-/* Sits opposite the "grown-up says" label; swaps this one affirmation to simpler words. */
+/* Sits opposite the "grown-up says" label. Off: an empty toy block. On: hatched yellow with a star. */
 .wording-toggle {
-  position: absolute; top: 2px; right: 6px;
-  min-height: 44px; padding: 0 10px;
-  border: 0; background: transparent; color: inherit;
-  font-family: var(--label); font-weight: 700; font-size: 1.05rem; letter-spacing: .02em;
-  text-decoration: underline wavy; text-decoration-thickness: 1px; text-underline-offset: 4px;
-  opacity: .75;
+  position: absolute; top: 0; right: 4px;
+  display: grid; place-items: center;
+  width: 48px; height: 48px; padding: 0;
+  border: 0; border-radius: 50%; background: transparent; color: inherit;
   cursor: pointer;
-  transition: transform 120ms var(--ease-out), opacity 120ms;
+  transition: transform 120ms var(--ease-out);
 }
-.wording-toggle:active { transform: scale(.95); }
-@media (hover: hover) and (pointer: fine) {
-  .wording-toggle:hover { opacity: 1; }
+.wording-toggle svg { width: 42px; height: 42px; overflow: visible; }
+.wording-toggle:active { transform: scale(.9); }
+.wording-toggle .block-face, .wording-toggle .block-top, .wording-toggle .block-side { fill: var(--paper); }
+.wording-toggle[aria-pressed="true"] :is(.block-face, .block-top, .block-side) { fill: url(#hatch-yellow); }
+.wording-star {
+  fill: url(#hatch-yellow);
+  opacity: 0;
+  transform: translateY(3px) scale(.8);
+  transform-box: fill-box; transform-origin: center;
+  transition: opacity 120ms var(--ease-out), transform 120ms var(--ease-out);
+}
+.wording-toggle[aria-pressed="true"] .wording-star {
+  opacity: 1; transform: none;
+  transition: opacity 160ms var(--ease-out), transform 260ms var(--ease-out);
+}
+@media (prefers-reduced-motion: reduce) {
+  .wording-star { transform: none; transition: opacity 160ms ease; }
 }
 
 .words {
