@@ -18,6 +18,7 @@ http.createServer((req, res) => {
   let file = path.normalize(path.join(ROOT, decodeURIComponent(url.pathname)));
   if (!file.startsWith(ROOT)) { res.writeHead(403).end(); return; }
   if (url.pathname.endsWith('/')) file = path.join(file, 'index.html');
+  else if (!path.extname(file)) file += '.html'; // clean URLs, as the Cloudflare assets handler serves them
   fs.readFile(file, (error, body) => {
     if (error) { res.writeHead(404).end('Not found'); return; }
     res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream' }).end(body);

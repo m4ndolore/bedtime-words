@@ -1,6 +1,7 @@
 /* Bedtime words: a grown-up reads the top half, the kids answer with the bottom half.
  * One tap shows the kids' half, the next tap moves on. + adds an affirmation (a suggestion, a
  * category, or one the family writes), − takes the current one out of the rotation.
+ * "simpler words" swaps one affirmation to its simpler wording until the family switches back.
  */
 (() => {
   'use strict';
@@ -15,6 +16,7 @@
     pool: [],
     categories: [],
     rotation: [],
+    simple: new Set(),
     order: [],
     index: 0,
     revealed: false,
@@ -66,6 +68,7 @@
     state.pool = payload.affirmations;
     state.categories = payload.categories;
     state.rotation = payload.rotation;
+    state.simple = new Set(payload.simple);
   }
 
   async function load() {
@@ -100,6 +103,8 @@
 
   function byId(id) { return state.pool.find((item) => item.id === id); }
   function saying(item) { return `${item.challenge} ${item.response}`; }
+  /* The wording this family uses for an affirmation: simpler if they chose it, else the original. */
+  function wording(item) { return item.simple && state.simple.has(item.id) ? item.simple : item; }
 
   /* ---------- Screens ---------- */
 
@@ -190,8 +195,10 @@
     const item = byId(state.order[state.index]);
     if (!item) return finish();
     show('card');
-    setWords($('challenge'), item.challenge);
-    setWords($('response'), item.response);
+    const words = wording(item);
+    setWords($('challenge'), words.challenge);
+    setWords($('response'), words.response);
+    renderWordingToggle(item);
     state.revealed = false;
     $('response').parentElement.classList.remove('revealed');
     $('hint').textContent = prefs.hide ? "tap when you've said it" : 'tap for the next one';
@@ -218,6 +225,30 @@
       sound.pencil(Math.min(6, 2 + Math.ceil(response.querySelectorAll('.w').length / 3)));
       sound.bell(state.index % 10, 0.12);
     }
+  }
+
+  function renderWordingToggle(item) {
+    const button = $('wording');
+    button.hidden = !item.simple;
+    button.textContent = state.simple.has(item.id) ? 'original words' : 'simpler words';
+  }
+
+  function toggleWording(event) {
+    event.stopPropagation();
+    const item = byId(state.order[state.index]);
+    if (!item || !item.simple) return;
+    const on = !state.simple.has(item.id);
+    if (!change(() => accept(store.setSimple(item.id, on)), toastStatus)) return;
+    const words = wording(item);
+    setWords($('challenge'), words.challenge);
+    setWords($('response'), words.response);
+    renderWordingToggle(item);
+    fitAll();
+    sound.pencil(2);
+    requestAnimationFrame(() => {
+      $('challenge').classList.add('shown');
+      if (state.revealed) $('response').classList.add('shown');
+    });
   }
 
   function advance() {
@@ -516,10 +547,11 @@
   }
 
   function pickRow(item, buttons, number) {
+    const words = wording(item);
     const text = el('p', { class: 'pick-text' },
       number ? el('span', { class: 'pick-number', text: `${number}.` }) : null,
-      el('span', { class: 'c', text: item.challenge }), ' ',
-      el('span', { class: 'r', text: item.response }),
+      el('span', { class: 'c', text: words.challenge }), ' ',
+      el('span', { class: 'r', text: words.response }),
       el('span', { class: 'pick-meta', text: item.custom ? `${item.category} · written by us` : item.category }));
     return el('li', { class: 'pick' }, text, el('div', { class: 'pick-buttons' }, ...buttons));
   }
@@ -668,6 +700,7 @@
     $('prev').addEventListener('click', () => goTo(state.index - 1));
     $('next').addEventListener('click', () => goTo(state.index + 1));
     $('remove-current').addEventListener('click', removeCurrent);
+    $('wording').addEventListener('click', toggleWording);
     $('add-more').addEventListener('click', () => openAdder());
     $('toast-undo').addEventListener('click', () => {
       const undo = state.undo;

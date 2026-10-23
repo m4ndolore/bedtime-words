@@ -61,3 +61,27 @@ test('blocked storage: the page renders, a session runs, and says it will not re
   await sayAll(page);
   await expect(page.locator('#done-count')).toHaveText('3 affirmations said');
 });
+
+test('simpler words: one tap switches that affirmation only, and it stays switched after a reload', async ({ page }) => {
+  // protects=a family can make one hard affirmation easier without a global setting; fails_when=the toggle shows on one with no simpler version, changes the wrong card, or forgets after reload; no_claim=sound, animation timing
+  await page.goto('/');
+  await page.locator('#begin').click();
+  await expect(page.locator('#challenge')).toHaveText('I can do');
+  await expect(page.locator('#wording')).toBeHidden();
+  await tapCard(page); await tapCard(page); await tapCard(page); await tapCard(page);
+  await expect(page.locator('#challenge')).toHaveText('I am capable of anything');
+  await page.locator('#wording').click();
+  await expect(page.locator('#challenge')).toHaveText('I can');
+  await expect(page.locator('#wording')).toHaveText('original words');
+
+  await page.reload();
+  await page.locator('#begin').click();
+  await expect(page.locator('#challenge')).toHaveText('I can do');
+  await tapCard(page); await tapCard(page); await tapCard(page); await tapCard(page);
+  await expect(page.locator('#challenge')).toHaveText('I can');
+  await tapCard(page);
+  await expect(page.locator('#response')).toHaveText('do it.');
+  await page.locator('#wording').click();
+  await expect(page.locator('#challenge')).toHaveText('I am capable of anything');
+  await expect(page.locator('#response')).toHaveText('I put my mind to.');
+});

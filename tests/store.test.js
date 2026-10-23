@@ -104,3 +104,32 @@ test('public pool: no family-specific names', () => {
   assert.equal(POOL.affirmations.find((item) => item.id === 22).challenge, 'My family loves');
   assert.equal(POOL.affirmations.find((item) => item.id === 27).challenge, 'What my family wants most');
 });
+
+test('simpler wording: the choice is per affirmation and survives a reload until switched back', async () => {
+  // protects=a family that picks simpler words for one affirmation keeps them on that one only; fails_when=the choice is lost on reload, leaks to other ids, or cannot be undone; no_claim=card rendering (covered by e2e)
+  const storage = memoryStorage();
+  const first = make(storage);
+  await first.load();
+  assert.deepEqual(first.setSimple(9, true).simple, [9]);
+  const second = make(storage);
+  assert.deepEqual((await second.load()).simple, [9]);
+  assert.deepEqual(second.setSimple(9, false).simple, []);
+  assert.throws(() => second.setSimple(1, true), /no simpler wording/);
+});
+
+test('older saves: a version 1 save from before simpler wording loads with none chosen', async () => {
+  // protects=families who saved before this release keep their set; fails_when=load throws or drops the rotation; no_claim=other missing fields
+  const storage = memoryStorage({ [KEY]: JSON.stringify({ version: 1, rotation: [4, 9], own: [], prefs: {}, device: 'd' }) });
+  const view = await make(storage).load();
+  assert.deepEqual(view.rotation, [4, 9]);
+  assert.deepEqual(view.simple, []);
+});
+
+test('pool wording: every simpler version has both halves, and #5 reads as reviewed', () => {
+  // protects=the reviewed wording ships as written; fails_when=a simpler version is missing a half or #5 reverts; no_claim=the wording itself is right (the maintainer reviewed it)
+  for (const item of POOL.affirmations.filter((other) => other.simple)) {
+    assert.ok(item.simple.challenge.trim() && item.simple.response.trim(), `#${item.id}`);
+  }
+  assert.equal(POOL.affirmations.filter((item) => item.simple).length, 41);
+  assert.equal(POOL.affirmations.find((item) => item.id === 5).response, 'confidence I can figure it out.');
+});
