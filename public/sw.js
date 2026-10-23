@@ -1,6 +1,6 @@
 /* Caches the page shell so bedtime works offline after the first visit.
  * Bump CACHE on every release so phones pick up the new files. */
-const CACHE = 'bedtime-words-2026-10-23b';
+const CACHE = 'bedtime-words-2026-10-23c';
 const SHELL = [
   '/',
   '/css/app.css',

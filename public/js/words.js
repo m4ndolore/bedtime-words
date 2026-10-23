@@ -22,6 +22,11 @@
         const li = el('li');
         li.value = item.id;
         li.append(el('span', 'c', item.challenge), ' ', el('span', 'r', item.response), el('span', 'id', `#${item.id}`));
+        if (item.simple) {
+          const simple = el('span', 'simple', 'simpler: ');
+          simple.append(el('span', 'c', item.simple.challenge), ' ', el('span', 'r', item.simple.response));
+          li.append(simple);
+        }
         list.append(li);
       }
       root.append(list);

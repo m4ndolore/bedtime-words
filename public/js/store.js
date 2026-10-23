@@ -1,7 +1,8 @@
 /* Bedtime words store: everything a family sets up lives in this browser under one key.
  * The built-in pool comes from /pool.json; family-written affirmations get "o-" ids so they
  * never collide with the pool's numeric ids. Every storage call is guarded: when storage is
- * blocked, the page still works for the visit and `persistent` turns false.
+ * blocked, the page still works for the visit and `persistent` turns false. `simple` lists the
+ * pool ids a family switched to the simpler wording; each choice lasts until they switch back.
  */
 (function (root) {
   'use strict';
@@ -19,7 +20,9 @@
     let data = null;
 
     function defaults() {
-      return { version: VERSION, rotation: DEFAULT_ROTATION.slice(), own: [], prefs: { ...DEFAULT_PREFS }, device: uuid() };
+      return {
+        version: VERSION, rotation: DEFAULT_ROTATION.slice(), own: [], simple: [], prefs: { ...DEFAULT_PREFS }, device: uuid(),
+      };
     }
 
     function read() {
@@ -32,6 +35,7 @@
           version: VERSION,
           rotation: Array.isArray(parsed.rotation) ? parsed.rotation : DEFAULT_ROTATION.slice(),
           own: Array.isArray(parsed.own) ? parsed.own.filter(validOwn) : [],
+          simple: Array.isArray(parsed.simple) ? parsed.simple.filter((id) => typeof id === 'number') : [],
           prefs: { ...DEFAULT_PREFS, ...(parsed.prefs || {}) },
           device: typeof parsed.device === 'string' ? parsed.device : uuid(),
         };
@@ -82,6 +86,7 @@
         categories: [...pool.categories, { ...OWN }],
         affirmations,
         rotation: data.rotation.filter((id, i, all) => ids.has(id) && all.indexOf(id) === i),
+        simple: data.simple.filter((id) => ids.has(id)),
       };
     }
 
@@ -135,6 +140,16 @@
         const item = data.own.find((other) => other.id === id);
         if (!item) throw new Error('That affirmation is gone.');
         Object.assign(item, fields(input));
+        write();
+        return view();
+      },
+
+      setSimple(id, on) {
+        requirePool();
+        const item = pool.affirmations.find((other) => other.id === id);
+        if (!item || !item.simple) throw new Error('That affirmation has no simpler wording.');
+        data.simple = data.simple.filter((other) => other !== id);
+        if (on) data.simple.push(id);
         write();
         return view();
       },

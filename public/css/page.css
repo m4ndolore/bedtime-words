@@ -16,4 +16,5 @@ ol.words { padding-left: 2.6em; margin: 0; }
 ol.words li { margin: 6px 0; }
 .c { color: var(--blue); }
 .r { color: var(--red); }
+.simple { display: block; font-size: .92rem; color: var(--soft); }
 .id { color: var(--soft); font-size: .8rem; margin-left: 6px; font-variant-numeric: tabular-nums; }
