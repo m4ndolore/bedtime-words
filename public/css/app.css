@@ -379,6 +379,8 @@ dialog.sheet[open] { animation: sheet-in 280ms var(--ease-out); }
 .sheet-body {
   display: grid; gap: 12px;
   padding: 18px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+  /* Sheets are for reading and editing: plain rounded type. Only titles and subtitles stay handwritten. */
+  font-family: var(--ui);
 }
 .sheet--tall .sheet-body { max-height: 88dvh; overflow-y: auto; overscroll-behavior: contain; }
 .sheet-head { display: flex; align-items: center; justify-content: space-between; }
@@ -407,6 +409,12 @@ dialog.sheet[open] { animation: sheet-in 280ms var(--ease-out); }
 .editor-status { margin: 0; min-height: 1.3em; font-size: .9rem; color: var(--soft); }
 .editor-status.error { color: var(--red); }
 .editor-actions { display: grid; gap: 8px; }
+/* The next pool affirmation, shown above the button that adds it. */
+.next-up {
+  display: grid; gap: 10px; padding: 12px 14px;
+  border: 1.5px dashed var(--soft); border-radius: 18px;
+}
+.next-up .pick-text { font-size: 1.15rem; }
 .start-fresh { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: .95rem; color: var(--soft); }
 .start-fresh select {
   font: inherit; font-size: 16px; min-height: 40px; padding: 4px 8px;
@@ -419,7 +427,7 @@ dialog.sheet[open] { animation: sheet-in 280ms var(--ease-out); }
   padding: 10px 10px 10px 14px;
   border-radius: 16px; background: var(--paper-deep);
 }
-.pick-text { margin: 0; font-family: var(--hand); font-size: 1.2rem; line-height: 1.25; }
+.pick-text { margin: 0; font-family: var(--ui); font-size: 1.02rem; font-weight: 500; line-height: 1.35; }
 .pick-text .c { color: var(--blue); }
 .pick-text .r { color: var(--red); }
 .pick-meta { display: block; margin-top: 2px; font-family: var(--ui); font-size: .78rem; color: var(--soft); }
@@ -431,7 +439,7 @@ dialog.sheet[open] { animation: sheet-in 280ms var(--ease-out); }
 }
 .pick-button:active { transform: scale(.96); }
 .pick-button--add { background: var(--blue); border-color: var(--blue); color: var(--paper); }
-.pick-number { font-family: var(--label); font-weight: 700; color: var(--soft); margin-right: 4px; }
+.pick-number { font-weight: 600; color: var(--soft); margin-right: 4px; font-variant-numeric: tabular-nums; }
 
 .pool-title { margin: 8px 0 0; font-family: var(--hand); font-weight: 400; font-size: 1.6rem; color: var(--red); }
 .pool details { border-top: 1.5px dashed var(--soft); padding: 6px 0; }
@@ -555,7 +563,7 @@ dialog.sheet[open] { animation: sheet-in 280ms var(--ease-out); }
     var(--paper-deep);
 }
 .suggestion-meta { margin: 0; font-size: .85rem; color: var(--soft); }
-.suggestion-words { margin: 0; font-family: var(--hand); font-size: 1.9rem; line-height: 1.15; }
+.suggestion-words { margin: 0; font-family: var(--ui); font-size: 1.3rem; font-weight: 600; line-height: 1.3; }
 .suggestion-words .c { color: var(--blue); }
 .suggestion-words .r { color: var(--red); }
 .suggestion-actions { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
@@ -566,9 +574,9 @@ dialog.sheet[open] { animation: sheet-in 280ms var(--ease-out); }
   min-height: 48px; padding: 8px 12px;
   border: 2px solid var(--line); border-radius: 14px;
   background: var(--paper); color: var(--line);
-  font-family: var(--hand); font-size: 22px;
+  font-family: var(--ui); font-size: 17px;
 }
-.field select { font-family: var(--ui); font-size: 16px; }
+.field select { font-size: 16px; }
 .field--blue input { color: var(--blue); border-color: var(--blue); }
 .field--red input { color: var(--red); border-color: var(--red); }
 .writer-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
