@@ -7,9 +7,11 @@
     "serve": "node tests/serve.js",
     "test": "node --test tests/*.test.js",
     "e2e": "playwright test",
-    "deploy": "wrangler pages deploy public --project-name bedtime-words --branch main"
+    "deploy": "wrangler deploy",
+    "preview": "wrangler dev"
   },
   "devDependencies": {
-    "@playwright/test": "1.56.1"
+    "@playwright/test": "1.56.1",
+    "wrangler": "4.152.0"
   }
 }
