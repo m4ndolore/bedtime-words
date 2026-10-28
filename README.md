@@ -45,6 +45,7 @@ npm test             # store, validator and Worker tests (node --test, D1 on nod
 npm run e2e          # phone-profile flows in Playwright (community API mocked)
 npx wrangler dev     # the Worker with a local D1 (run `npx wrangler d1 migrations apply bedtime-words --local` once)
 npm run deploy       # wrangler deploy: the bedtime-words Worker (static assets, custom domain in wrangler.jsonc)
+node tools/record-demo.js demo.mp4   # 1080x1920 video with sound: three affirmations on an iPhone frame (needs ffmpeg)
 ```
 
 ## Credits
