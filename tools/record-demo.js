@@ -4,8 +4,9 @@
  *   node tools/record-demo.js [out.mp4]      (needs ffmpeg on PATH)
  *
  * Frames come from a CDP screencast of the frame page. Sound is the app's own Web Audio output,
- * copied off ctx.destination by a ScriptProcessor and stamped with wall-clock time, so both line up
- * on Date.now() and ffmpeg needs no manual offset.
+ * copied off ctx.destination by an AudioWorklet that tags every render quantum with its frame
+ * number, so the samples join without seams. One measured offset between the audio clock and
+ * Date.now() places them against the video frames.
  */
 'use strict';
 
@@ -25,47 +26,66 @@ function captureAudio() {
     localStorage.setItem('bedtime-words-v1', JSON.stringify({ version: 1, prefs: { night: true } }));
   }
   const connect = AudioNode.prototype.connect;
-  const taps = new WeakMap();
-  const capture = { blocks: [], sampleRate: 0 };
-  window.__capture = capture;
-  AudioNode.prototype.connect = function (target, ...rest) {
-    if (target instanceof AudioDestinationNode && !taps.has(this.context)) {
-      const ctx = this.context;
-      const tap = ctx.createScriptProcessor(2048, 2, 2);
-      taps.set(ctx, tap);
-      capture.sampleRate = ctx.sampleRate;
-      tap.onaudioprocess = (event) => {
-        const stamp = ctx.getOutputTimestamp();
-        const wall = stamp.performanceTime
-          ? performance.timeOrigin + stamp.performanceTime + (event.playbackTime - stamp.contextTime) * 1000
-          : Date.now();
-        const input = event.inputBuffer;
-        capture.blocks.push({ at: wall, left: input.getChannelData(0).slice(), right: input.getChannelData(1).slice() });
-      };
-      connect.call(tap, target);
+  const buses = new WeakMap();
+  const quanta = [];
+  const offsets = [];
+  let sampleRate = 0;
+  const processor = `registerProcessor('tap', class extends AudioWorkletProcessor {
+    process([input]) {
+      if (input.length) this.port.postMessage({ frame: currentFrame, left: input[0], right: input[1] || input[0] });
+      return true;
     }
-    if (target instanceof AudioDestinationNode) connect.call(this, taps.get(this.context));
+  });`;
+
+  function busFor(ctx) {
+    if (buses.has(ctx)) return buses.get(ctx);
+    const bus = ctx.createGain();
+    buses.set(ctx, bus);
+    sampleRate = ctx.sampleRate;
+    ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([processor], { type: 'text/javascript' }))).then(() => {
+      const tap = new AudioWorkletNode(ctx, 'tap', { outputChannelCount: [2] });
+      tap.port.onmessage = ({ data }) => quanta.push(data);
+      connect.call(bus, tap);
+      connect.call(tap, ctx.destination); // silent; keeps the tap pulled
+    });
+    // The app schedules sounds on ctx.currentTime from page events, so this offset lines sound up with what it shows.
+    setInterval(() => { if (ctx.state === 'running') offsets.push(Date.now() - ctx.currentTime * 1000); }, 100);
+    return bus;
+  }
+
+  AudioNode.prototype.connect = function (target, ...rest) {
+    if (target instanceof AudioDestinationNode) connect.call(this, busFor(this.context));
     return connect.call(this, target, ...rest);
   };
-  window.__takeAudio = () => capture.blocks.map((block) => ({
-    at: block.at,
-    left: Array.from(block.left, (v) => Math.round(Math.max(-1, Math.min(1, v)) * 32767)),
-    right: Array.from(block.right, (v) => Math.round(Math.max(-1, Math.min(1, v)) * 32767)),
-  }));
+
+  /* Interleaved 16-bit stereo from frame 0, base64, and the Date.now() of frame 0. */
+  window.__takeAudio = () => {
+    if (!quanta.length) return null;
+    const last = quanta[quanta.length - 1];
+    const pcm = new Int16Array((last.frame + last.left.length) * 2);
+    const clip = (v) => Math.round(Math.max(-1, Math.min(1, v)) * 32767);
+    for (const { frame, left, right } of quanta) {
+      for (let i = 0; i < left.length; i += 1) {
+        pcm[(frame + i) * 2] = clip(left[i]);
+        pcm[(frame + i) * 2 + 1] = clip(right[i]);
+      }
+    }
+    const bytes = new Uint8Array(pcm.buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    const sorted = offsets.slice().sort((a, b) => a - b);
+    return { sampleRate, zeroAt: sorted[Math.floor(sorted.length / 2)], quanta: quanta.length, pcm: btoa(binary) };
+  };
 }
 
-function wav(blocks, sampleRate, start, seconds) {
-  const frames = Math.ceil(seconds * sampleRate);
-  const pcm = Buffer.alloc(frames * 4);
-  for (const block of blocks) {
-    const first = Math.round(((block.at - start) / 1000) * sampleRate);
-    block.left.forEach((left, i) => {
-      const at = first + i;
-      if (at < 0 || at >= frames) return;
-      pcm.writeInt16LE(left, at * 4);
-      pcm.writeInt16LE(block.right[i], at * 4 + 2);
-    });
-  }
+/* The captured audio, shifted so sample 0 is the first video frame, as a WAV file. */
+function wav(audio, start, seconds) {
+  const { sampleRate } = audio;
+  const source = Buffer.from(audio.pcm, 'base64');
+  const pcm = Buffer.alloc(Math.ceil(seconds * sampleRate) * 4);
+  const shift = Math.round(((audio.zeroAt - start) / 1000) * sampleRate) * 4;
+  if (shift >= 0) source.copy(pcm, shift, 0, Math.max(0, Math.min(source.length, pcm.length - shift)));
+  else source.copy(pcm, 0, -shift, Math.min(source.length, pcm.length - shift));
   const header = Buffer.alloc(44);
   header.write('RIFF', 0); header.writeUInt32LE(36 + pcm.length, 4); header.write('WAVE', 8);
   header.write('fmt ', 12); header.writeUInt32LE(16, 16); header.writeUInt16LE(1, 20); header.writeUInt16LE(2, 22);
@@ -131,7 +151,6 @@ function wav(blocks, sampleRate, start, seconds) {
     const end = Date.now();
     await cdp.send('Page.stopScreencast');
     const audio = await frame.evaluate(() => window.__takeAudio());
-    const sampleRate = await frame.evaluate(() => window.__capture.sampleRate);
 
     const start = shots[0].at;
     const list = shots.map((shot, i) => {
@@ -142,7 +161,7 @@ function wav(blocks, sampleRate, start, seconds) {
     });
     fs.writeFileSync(path.join(work, 'frames.txt'), `${list.join('\n')}\nfile '${path.join(work, `f${String(shots.length - 1).padStart(5, '0')}.jpg`)}'\n`);
     const seconds = (end - start) / 1000;
-    fs.writeFileSync(path.join(work, 'sound.wav'), wav(audio, sampleRate, start, seconds));
+    fs.writeFileSync(path.join(work, 'sound.wav'), wav(audio, start, seconds));
 
     execFileSync('ffmpeg', [
       '-y', '-loglevel', 'error',
@@ -151,7 +170,7 @@ function wav(blocks, sampleRate, start, seconds) {
       '-vf', `fps=${FPS},format=yuv420p`, '-c:v', 'libx264', '-crf', '18', '-preset', 'slow',
       '-c:a', 'aac', '-b:a', '192k', '-t', seconds.toFixed(3), '-movflags', '+faststart', OUT,
     ]);
-    console.log(`${OUT}: ${seconds.toFixed(1)} s, ${shots.length} frames, ${audio.length} audio blocks`);
+    console.log(`${OUT}: ${seconds.toFixed(1)} s, ${shots.length} frames, ${audio.quanta} audio quanta`);
   } finally {
     await browser.close();
     server.kill();
